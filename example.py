@@ -1,4 +1,5 @@
 from spice import V,R,MOSFET,solve,clear,Vertex
+from numpy import linspace
 
 #FIXME if a loop is consist only of the mosfets, then it provide
 #a constraint on Vds 
@@ -14,8 +15,8 @@ PMOS = lambda G,D,S,ratio,V_DS=2: MOSFET(G=G,D=D,S=S,mode="depletion",
 clear()
 
 V("VCC","GND",10)
-V1=V("V1","GND",5)
-V2=V("V2","V1",2e-3)
+V1=V("V1","GND",3)
+V2=V("V2","V1",4e-3)
 
 # Lower current mirror
 R("VCC",1,1e4)
@@ -38,7 +39,15 @@ NMOS(D=3,G="V2",S=4,ratio=4)
 
 PMOS(S="X3",G=3,D="Vout",ratio=9/2)
 
-sol,done,step=solve(alp=1,eps=1e-8,N=10000,disp=0)
+solve(eps=1e-8)
 
-print("Done" if done else "Failed", step) 
-print("Vout =",Vertex("Vout").V @ sol)
+vdiff = linspace(-1,1,2000)
+vout = []
+for v in vdiff:
+    V2.U = v
+    print("Vdiff =", v)
+    res = solve(eps=1e-8,alp=.1,N=1000,full_output=True)
+    if not res.done:
+        break
+    print(res.step)
+    vout.append(Vertex("Vout").V @ res.sol)

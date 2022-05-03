@@ -1,6 +1,7 @@
 from numpy import zeros, array, concatenate as concat, linspace, eye
 from numpy.linalg import solve as lsolve, eig
 from numpy.random import normal
+from collections import namedtuple
 
 blank_eq = lambda : zeros(Edge.total+len(MOSFET.all)+1)
 
@@ -170,13 +171,17 @@ class MOSFET(Edge):
             Id = -Id
         return Id, dV_GS, dV_DS
 
-def solve(gnd=None, alp=1, eps=1e-14,N=1000, disp=0):
+def solve(gnd=None, alp=1, eps=1e-14,N=1000, disp=0,full_output=False):
     """
     solve the current circuit
     return (sol, done, step) where sol is the solution, done is True if
     converged, step is the total iteration steps.
     try smaller alp if not converged.
     """
+    if full_output:
+        output = namedtuple("res",["sol","done","step","msg"])
+    else:
+        output = lambda *args: args[0]
     if gnd==None: gnd = GND
     loops = gnd.loops
     vertices = list(Vertex.all.values())[1:]
@@ -219,15 +224,22 @@ def solve(gnd=None, alp=1, eps=1e-14,N=1000, disp=0):
             max_delta = max(abs(delta))
             if disp>0: print(max_delta)
             if max_delta > alp:
-                delta /= max_delta
+                delta *= alp / max_delta
             elif max_delta < eps:
                 sub_done = True
                 break
             mos_sol -= delta
         step += 1 + sub_step
-        if not sub_done: return cur,False,step
-        if done:         return cur,True,step
-    return cur, False, step
+        if not sub_done: return output(cur,False,step,
+                "Maximum MOSFET step reached")
+        if step > N: return output(cur,False,step,
+                "Maximum total step reached")
+        if done:
+            for idx,mos in enumerate(MOSFET.all):
+                mos.V_DS = mos_sol[idx]
+            return output(cur,True,step,"")
+    return output(cur, False, step,
+            "Maximum outer step reached")
 
 V = VoltageSource
 C = Capacitor
