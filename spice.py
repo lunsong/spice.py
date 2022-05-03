@@ -171,7 +171,8 @@ class MOSFET(Edge):
             Id = -Id
         return Id, dV_GS, dV_DS
 
-def solve(gnd=None, alp=1, eps=1e-14,N=1000, disp=0,full_output=False):
+def solve(gnd=None, alp=1, beta_min=1e-4, eps=1e-14,N=1000,
+        disp=0,full_output=False):
     """
     solve the current circuit
     return (sol, done, step) where sol is the solution, done is True if
@@ -187,6 +188,7 @@ def solve(gnd=None, alp=1, eps=1e-14,N=1000, disp=0,full_output=False):
     vertices = list(Vertex.all.values())[1:]
     mos_sol = array([mos.V_DS for mos in MOSFET.all],dtype=float)
     step = 0
+    beta=1
     for _ in range(100):
         eqs = [n.divergence() for n in vertices]
         eqs += [a.V-b.V-a.edges[b].V(a) for a,b in loops]
@@ -204,7 +206,7 @@ def solve(gnd=None, alp=1, eps=1e-14,N=1000, disp=0,full_output=False):
             if not e.on and cur[e.number] > e.VD:
                 done = False
                 e.on = True 
-        for sub_step in range(N):
+        for sub_step in range(100):
             cur = sol @ concat((mos_sol,(1,)))
             Jacobian = []
             F = []
@@ -222,18 +224,25 @@ def solve(gnd=None, alp=1, eps=1e-14,N=1000, disp=0,full_output=False):
             if disp>1: print(eig(Jacobian))
             delta = lsolve(Jacobian, F)
             max_delta = max(abs(delta))
+            if max_delta < eps:
+                sub_done=True
+                break
             if disp>0: print(max_delta)
+            delta *= beta
+            max_delta *= beta
             if max_delta > alp:
                 delta *= alp / max_delta
-            elif max_delta < eps:
-                sub_done = True
-                break
             mos_sol -= delta
         step += 1 + sub_step
-        if not sub_done: return output(cur,False,step,
-                "Maximum MOSFET step reached")
+        if beta<beta_min:
+            return output(cur,False,step,"Minimum alp reached")
         if step > N: return output(cur,False,step,
                 "Maximum total step reached")
+        if not sub_done:
+            #breakpoint()
+            beta*=.1
+            if disp>1: print(f"beta={beta}")
+            continue
         if done:
             for idx,mos in enumerate(MOSFET.all):
                 mos.V_DS = mos_sol[idx]
