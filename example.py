@@ -39,15 +39,16 @@ NMOS(D=3,G="V2",S=4,ratio=4)
 
 PMOS(S="X3",G=3,D="Vout",ratio=9/2)
 
-solve(eps=1e-8)
-
-vdiff = linspace(-1,1,2000)
+print(solve(eps=1e-14,full_output=True,disp=1,N=5000))
+"""
+vdc = linspace(2,8,2000)
 vout = []
-for v in vdiff:
-    V2.U = v
-    print("Vdiff =", v)
-    res = solve(eps=1e-8,alp=.1,N=1000,full_output=True)
+for v in vdc:
+    V1.U = v
+    res = solve(eps=1e-8,alp=1,alp_min=1e-8,N=1000,disp=0,full_output=True)
+    print(v,"\t",res.step,end="\r")
     if not res.done:
+        print(res.msg)
         break
-    print(res.step)
     vout.append(Vertex("Vout").V @ res.sol)
+    """
