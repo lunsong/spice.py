@@ -236,9 +236,10 @@ def solve(gnd=None, max_delta=1, eps=1e-14,
         if step > N: return output(cur,False,step,
                 "Maximum total step reached")
         if not sub_done:
-            if alp < 1e-6:
+            if alp < 1e-8:
                 return output(cur,False,step,"Minimum alp reached")
             alp *= .5
+            if disp>0: print(f"alp={alp}")
             continue
         if done:
             for idx,mos in enumerate(MOSFET.all):

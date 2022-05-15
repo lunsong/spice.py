@@ -15,7 +15,7 @@ PMOS = lambda G,D,S,ratio,V_DS=2: MOSFET(G=G,D=D,S=S,mode="depletion",
 clear()
 
 V("VCC","GND",10)
-V1=V("V1","GND",3)
+V1=V("V1","GND",5)
 V2=V("V2","V1",4e-3)
 
 # Lower current mirror
@@ -39,16 +39,14 @@ NMOS(D=3,G="V2",S=4,ratio=4)
 
 PMOS(S="X3",G=3,D="Vout",ratio=9/2)
 
-print(solve(eps=1e-14,full_output=True,disp=1,N=5000))
-"""
-vdc = linspace(2,8,2000)
+print(solve(eps=1e-8,full_output=True,disp=1,N=5000))
+vdc = linspace(-2,2,200)
 vout = []
 for v in vdc:
-    V1.U = v
-    res = solve(eps=1e-8,alp=1,alp_min=1e-8,N=1000,disp=0,full_output=True)
+    V2.U = v
+    res = solve(eps=1e-8,N=1000,disp=0,full_output=True)
     print(v,"\t",res.step,end="\r")
     if not res.done:
         print(res.msg)
         break
     vout.append(Vertex("Vout").V @ res.sol)
-    """
