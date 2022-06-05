@@ -1,14 +1,7 @@
-# spice.py: A Pure Python Implementation of Spice
+# spice.py: A Pure Python Implementation of (a subset of) Spice
 
-## Features
+Supported:
+  1. DC analysis with MOS supported.
+  2. Spice like syntax.
 
-* Supported Elements
-   1. Resitors
-   2. Capacitors
-   3. Voltage source
-   4. MOSFET
-
-* Supported Analysis
-   1. DC Analysis
-
-
+[Example](example.ipynb)
