@@ -129,6 +129,9 @@ class MOSFET(Edge):
         regarless of the channel type. default 1.8
         K and l(ambda) are model parameters
         """
+        _D = Vertex()
+        R(D,_D,1e-6)
+        D = _D
         super().__init__(D,S)
         self.mos_number = len(MOSFET.all)
         MOSFET.all.append(self)
