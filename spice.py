@@ -93,32 +93,6 @@ class VoltageSource(Edge):
         eq[-1] = self.U
 
 
-class Capacitor(VoltageSource):
-    def __init__(self,x,y,C,U=0):
-        super().__init__(x,y,U)
-        self.C = C
-
-
-class Diode(Edge):
-    all = []
-    def __init__(self,x,y,VD=0.7):
-        super().__init__(x,y)
-        self.VD = VD
-        self.on = False
-        Diode.all.append(self)
-
-    @IV_Wrapper
-    def I(self, eq):
-        if self.on:
-            eq[self.number] = 1
-
-    @IV_Wrapper
-    def V(self,eq):
-        if self.on:
-            eq[-1] = self.VD
-        else:
-            eq[self.number] = 1
-
 class MOSFET(Edge):
     all = []
     def __init__(self,D,S,G,V_TN=1.8,K=90,l=1e-2,V_DS=2,
@@ -192,62 +166,45 @@ def solve(gnd=None, max_delta=1, eps=1e-14,
     mos_sol = array([mos.V_DS for mos in MOSFET.all],dtype=float)
     step = 0
     alp = 1.
-    for _ in range(100):
-        eqs = [n.divergence() for n in vertices]
-        eqs += [a.V-b.V-a.edges[b].V(a) for a,b in loops]
-        eqs = array(eqs)
-        if disp>1: print(eqs[:,:Edge.total])
-        if disp>1: print(eig(eqs[:,:Edge.total])[1][:,-1])
-        sol = -lsolve( eqs[:,:Edge.total], eqs[:,Edge.total:])
-        sol = concat((sol, eye(len(MOSFET.all)+1)))
-        done = True
+    eqs = [n.divergence() for n in vertices]
+    eqs += [a.V-b.V-a.edges[b].V(a) for a,b in loops]
+    eqs = array(eqs)
+    if disp>1: print(eqs[:,:Edge.total])
+    if disp>1: print(eig(eqs[:,:Edge.total])[1][:,-1])
+    sol = -lsolve( eqs[:,:Edge.total], eqs[:,Edge.total:])
+    sol = concat((sol, eye(len(MOSFET.all)+1)))
+    done = True
+    cur = sol @ concat((mos_sol,(1,)))
+    for step in range(100):
         cur = sol @ concat((mos_sol,(1,)))
-        for e in Diode.all:
-            if e.on and cur[e.number] < 0:
-                done = False
-                e.on = False
-            if not e.on and cur[e.number] > e.VD:
-                done = False
-                e.on = True 
-        for sub_step in range(100):
-            cur = sol @ concat((mos_sol,(1,)))
-            Jacobian = []
-            F = []
-            sub_done = False
-            for e in MOSFET.all:
-                Id,df_dVGS,df_dVDS = e.Id_and_derivs(cur)
-                F.append(Id-cur[e.number])
-                J_Id = sol[e.number,:-1]
-                J_VDS = zeros(len(MOSFET.all))
-                J_VDS[e.mos_number] = 1
-                J_VGS = (e.G.V-e.S.V) @ sol[:,:-1]
-                Jacobian.append(df_dVGS * J_VGS + df_dVDS * J_VDS-J_Id)
-            Jacobian = array(Jacobian)
-            F = array(F)
-            if disp>1: print(Jacobian)
-            if disp>1: print(eig(Jacobian))
-            delta = lsolve(Jacobian, F)
-            if max(abs(F)) < eps:
-                sub_done=True
-                break
-            if disp>0: print(max(abs(F)))
-            delta *= alp
-            if max(abs(delta)) > max_delta:
-                delta *= max_delta / max(abs(delta)) 
-            mos_sol -= delta
-        step += 1 + sub_step
-        if step > N: return output(cur,False,step,
-                "Maximum total step reached")
-        if not sub_done:
-            if alp < 1e-8:
-                return output(cur,False,step,"Minimum alp reached")
-            alp *= .5
-            if disp>0: print(f"alp={alp}")
-            continue
-        if done:
-            for idx,mos in enumerate(MOSFET.all):
-                mos.V_DS = mos_sol[idx]
-            return output(cur,True,step,"")
+        Jacobian = []
+        F = []
+        done = False
+        for e in MOSFET.all:
+            Id,df_dVGS,df_dVDS = e.Id_and_derivs(cur)
+            F.append(Id-cur[e.number])
+            J_Id = sol[e.number,:-1]
+            J_VDS = zeros(len(MOSFET.all))
+            J_VDS[e.mos_number] = 1
+            J_VGS = (e.G.V-e.S.V) @ sol[:,:-1]
+            Jacobian.append(df_dVGS * J_VGS + df_dVDS * J_VDS-J_Id)
+        Jacobian = array(Jacobian)
+        F = array(F)
+        if disp>1: print(Jacobian)
+        if disp>1: print(eig(Jacobian))
+        delta = lsolve(Jacobian, F)
+        if max(abs(F)) < eps:
+            done=True
+            break
+        if disp>0: print(max(abs(F)))
+        delta *= alp
+        if max(abs(delta)) > max_delta:
+            delta *= max_delta / max(abs(delta)) 
+        mos_sol -= delta
+    if done:
+        for idx,mos in enumerate(MOSFET.all):
+            mos.V_DS = mos_sol[idx]
+        return output(cur,True,step,"")
     return output(cur, False, step,
             "Maximum outer step reached")
 
